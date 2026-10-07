@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador de Urna Eletrônica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --fundo: #e9e7e1;
+    --texto: #1d1f22;
+    --suave: #5c6066;
+    --linha: #c9c5bb;
+    --cartao: #f7f6f2;
+    --destaque: #2f8f4e;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fundo: #1b1d20; --texto: #ecebe6; --suave: #a3a6ab;
+      --linha: #3a3d42; --cartao: #25282c; --destaque: #4cc27a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --fundo: #1b1d20; --texto: #ecebe6; --suave: #a3a6ab;
+    --linha: #3a3d42; --cartao: #25282c; --destaque: #4cc27a;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--fundo);
+    color: var(--texto);
+    font-family: "Archivo", "Segoe UI", Roboto, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 28px 18px 48px; }
+  header.topo { margin-bottom: 22px; }
+  header.topo h1 { font-size: clamp(1.6rem, 3.5vw, 2.3rem); font-weight: 800; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header.topo p { margin: 0; color: var(--suave); max-width: 64ch; }
+
+  /* ---------- URNA ---------- */
+  .urna {
+    display: grid;
+    grid-template-columns: 1.55fr 1fr;
+    gap: 22px;
+    background: linear-gradient(180deg, #e3dfd3 0%, #cfc9b9 100%);
+    border-radius: 20px;
+    padding: 22px;
+    box-shadow: 0 2px 0 #fff8 inset, 0 -3px 0 #0002 inset, 0 18px 40px -18px #0007;
+    color: #111;
+  }
+  .moldura-tela {
+    background: #8d8a80;
+    border-radius: 10px;
+    padding: 12px;
+    box-shadow: inset 0 3px 8px #0006;
+  }
+  .tela {
+    container-type: inline-size;
+    background: #f4f4f1;
+    aspect-ratio: 4 / 3;
+    border-radius: 3px;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #111;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .tela-corpo { flex: 1; display: flex; padding: 3cqw 3.5cqw 0; gap: 2cqw; }
+  .info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .seu-voto { font-size: 3.2cqw; font-weight: bold; min-height: 4cqw; }
+  .cargo { font-size: 5.6cqw; text-align: center; margin: 2.5cqw 0 3cqw; font-weight: normal; }
+  .numero { display: flex; align-items: center; gap: 1cqw; font-size: 3.4cqw; }
+  .numero .rotulo { margin-right: 1.5cqw; }
+  .digito {
+    width: 6cqw; height: 7.6cqw;
+    border: 1px solid #222;
+    display: grid; place-items: center;
+    font-size: 5.6cqw;
+  }
+  .digito.atual { animation: pisca 1s steps(1) infinite; }
+  @keyframes pisca { 50% { background: #222; } }
+  .dados { margin-top: 3cqw; font-size: 3.2cqw; display: grid; gap: 1.2cqw; }
+  .dados b { font-weight: normal; }
+  .aviso-grande {
+    font-size: 6.5cqw; font-weight: bold; text-align: center;
+    margin-top: 6cqw; animation: pisca-texto 1s steps(1) infinite;
+  }
+  .aviso-medio { font-size: 4.4cqw; font-weight: bold; margin-top: 3cqw; }
+  @keyframes pisca-texto { 50% { opacity: 0; } }
+  .fotos { display: flex; flex-direction: column; gap: 1.5cqw; align-items: center; }
+  .foto { width: 17cqw; text-align: center; font-size: 2.2cqw; }
+  .foto svg { width: 100%; height: auto; border: 1px solid #555; display: block; }
+  .foto.vice { width: 12cqw; }
+  .rodape-tela {
+    border-top: 1px solid #111;
+    margin: 0 2cqw;
+    padding: 1.4cqw 1.5cqw 2cqw;
+    font-size: 2.7cqw;
+    line-height: 1.45;
+  }
+  .fim {
+    position: absolute; inset: 0;
+    display: grid; place-items: center; align-content: center;
+  }
+  .fim .palavra { font-size: 22cqw; letter-spacing: 0.04em; line-height: 1; }
+  .fim .votou { font-size: 3cqw; color: #555; margin-top: 2cqw; }
+
+  /* ---------- PAINEL / TECLADO ---------- */
+  .painel {
+    background: linear-gradient(180deg, #4a4a48, #2e2e2d);
+    border-radius: 12px;
+    padding: 16px 18px 20px;
+    display: flex; flex-direction: column; gap: 14px;
+    box-shadow: inset 0 2px 0 #fff2;
+  }
+  .placa {
+    display: flex; align-items: center; gap: 10px;
+    color: #f0efe9;
+    font-family: Arial, sans-serif;
+    font-weight: bold; font-size: 0.95rem; letter-spacing: 0.06em;
+    padding-bottom: 10px; border-bottom: 1px solid #ffffff22;
+  }
+  .placa .selo {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #f6e7a4, #b99a3c);
+    border: 2px solid #e8dfb8;
+    flex: none;
+  }
+  .teclas {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 10px; padding: 0 6%;
+  }
+  .teclas .zero { grid-column: 2; }
+  button { font: inherit; cursor: pointer; }
+  .tecla {
+    aspect-ratio: 1.45;
+    background: linear-gradient(180deg, #2a2a2a, #111);
+    color: #fff;
+    border: none; border-radius: 6px;
+    font-family: Arial, sans-serif; font-size: clamp(1.1rem, 2.6vw, 1.6rem);
+    box-shadow: 0 3px 0 #000, inset 0 1px 0 #ffffff26;
+    transition: transform .05s, box-shadow .05s;
+  }
+  .acoes { display: grid; grid-template-columns: 1fr 1fr 1.15fr; gap: 9px; align-items: end; }
+  .acao {
+    border: none; border-radius: 6px;
+    font-family: Arial, sans-serif; font-weight: bold;
+    font-size: clamp(0.62rem, 1.4vw, 0.85rem);
+    padding: 14px 4px;
+    box-shadow: 0 3px 0 #0009, inset 0 1px 0 #ffffff55;
+    transition: transform .05s, box-shadow .05s;
+  }
+  .acao.branco { background: #f4f4f1; color: #111; }
+  .acao.corrige { background: #e07a2b; color: #111; }
+  .acao.confirma { background: #2f9b4f; color: #111; padding: 22px 4px; }
+  .tecla:active, .acao:active, .pressionada { transform: translateY(3px); box-shadow: 0 0 0 #000 !important; }
+  .tecla:focus-visible, .acao:focus-visible, .botao:focus-visible, select:focus-visible {
+    outline: 3px solid #ffd54a; outline-offset: 2px;
+  }
+
+  /* ---------- ABAIXO DA URNA ---------- */
+  .controles {
+    display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
+    margin: 18px 0 0;
+  }
+  .botao {
+    background: var(--texto); color: var(--fundo);
+    border: none; border-radius: 8px; padding: 10px 16px; font-weight: 600;
+  }
+  .botao.secundario { background: transparent; color: var(--texto); border: 1px solid var(--linha); }
+  .dica { color: var(--suave); font-size: 0.92rem; }
+  kbd {
+    font-family: inherit; font-size: 0.85em; border: 1px solid var(--linha);
+    border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--cartao);
+  }
+  .som { display: inline-flex; gap: 6px; align-items: center; color: var(--suave); font-size: 0.92rem; }
+
+  section.colunas {
+    display: grid; grid-template-columns: 1fr 1.4fr; gap: 28px; margin-top: 36px;
+  }
+  h2 { font-size: 1.25rem; margin: 0 0 10px; font-weight: 800; }
+  .lista-cand { font-size: 0.93rem; }
+  .lista-cand details { border-top: 1px solid var(--linha); padding: 8px 0; }
+  .lista-cand summary { cursor: pointer; font-weight: 600; }
+  .lista-cand ul { margin: 6px 0 0; padding-left: 0; list-style: none; }
+  .lista-cand li { display: flex; gap: 10px; padding: 2px 0; }
+  .lista-cand li span:first-child { min-width: 3.2em; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  .boletim { background: var(--cartao); border: 1px solid var(--linha); border-radius: 12px; padding: 16px 18px; }
+  .boletim-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .boletim-topo p { margin: 0; color: var(--suave); font-size: 0.9rem; }
+  .boletim select {
+    font: inherit; padding: 6px 8px; border-radius: 6px;
+    border: 1px solid var(--linha); background: var(--fundo); color: var(--texto);
+  }
+  .barras { margin-top: 14px; display: grid; gap: 10px; }
+  .barra-linha { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; font-size: 0.92rem; }
+  .barra-linha .valor { font-variant-numeric: tabular-nums; color: var(--suave); }
+  .barra-trilho { grid-column: 1 / -1; height: 8px; background: var(--linha); border-radius: 4px; overflow: hidden; }
+  .barra-trilho div { height: 100%; background: var(--destaque); border-radius: 4px; transition: width .4s; }
+  .vazio { color: var(--suave); margin-top: 12px; }
+
+  @media (max-width: 760px) {
+    .urna { grid-template-columns: 1fr; padding: 14px; }
+    section.colunas { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .digito.atual, .aviso-grande { animation: none; }
+    .digito.atual { outline: 2px solid #222; outline-offset: -4px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="topo">
+    <h1>Simulador de urna eletrônica</h1>
+    <p>Vote para Presidente como no dia da eleição: digite o número de 2 dígitos, confira os dados na tela e aperte CONFIRMA. Candidatos e partidos são fictícios.</p>
+  </header>
+
+  <div class="urna" aria-label="Urna eletrônica">
+    <div class="moldura-tela">
+      <div class="tela" id="tela" role="region" aria-live="polite" aria-label="Tela da urna"></div>
+    </div>
+
+    <div class="painel">
+      <div class="placa"><span class="selo" aria-hidden="true"></span>JUSTIÇA ELEITORAL</div>
+      <div class="teclas" id="teclas">
+        <button class="tecla" data-num="1">1</button>
+        <button class="tecla" data-num="2">2</button>
+        <button class="tecla" data-num="3">3</button>
+        <button class="tecla" data-num="4">4</button>
+        <button class="tecla" data-num="5">5</button>
+        <button class="tecla" data-num="6">6</button>
+        <button class="tecla" data-num="7">7</button>
+        <button class="tecla" data-num="8">8</button>
+        <button class="tecla" data-num="9">9</button>
+        <button class="tecla zero" data-num="0">0</button>
+      </div>
+      <div class="acoes">
+        <button class="acao branco" id="btnBranco">BRANCO</button>
+        <button class="acao corrige" id="btnCorrige">CORRIGE</button>
+        <button class="acao confirma" id="btnConfirma">CONFIRMA</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="controles">
+    <button class="botao" id="btnProximo" hidden>Liberar próximo eleitor</button>
+    <label class="som"><input type="checkbox" id="chkSom" checked> Som ligado</label>
+    <span class="dica">Teclado: <kbd>0–9</kbd> números, <kbd>B</kbd> branco, <kbd>Backspace</kbd> corrige, <kbd>Enter</kbd> confirma</span>
+  </div>
+
+  <section class="colunas">
+    <div class="lista-cand">
+      <h2>Candidatos</h2>
+      <div id="listaCandidatos"></div>
+    </div>
+    <div class="boletim">
+      <div class="boletim-topo">
+        <h2>Boletim de urna</h2>
+        <p id="totalEleitores">0 eleitores votaram</p>
+      </div>
+      <div class="controles" style="margin-top:6px">
+        <select id="selCargo" aria-label="Cargo do boletim"></select>
+        <button class="botao secundario" id="btnZerar">Zerar votação</button>
+      </div>
+      <div id="barras" class="barras"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ===================== DADOS (fictícios) ===================== */
+const PARTIDOS = {
+  "12": { sigla: "PRV", nome: "Partido do Rio Verde" },
+  "13": { sigla: "PSU", nome: "Partido do Sertão Unido" },
+  "22": { sigla: "MNL", nome: "Movimento Nordeste Livre" },
+  "27": { sigla: "MMC", nome: "Movimento Mandacaru" },
+  "38": { sigla: "ALA", nome: "Aliança Agreste" },
+  "45": { sigla: "PSA", nome: "Partido da Serra Azul" },
+  "63": { sigla: "FL",  nome: "Frente Litoral" }
+};
+
+const ETAPAS = [
+  { cargo: "PRESIDENTE", digitos: 2, legenda: false, candidatos: {
+      "12": { nome: "Helena Martins", vice: "Carlos Andrade" },
+      "13": { nome: "Mateus Cordeiro", vice: "Rosa Albuquerque" },
+      "22": { nome: "Paulo Henrique Sales", vice: "Fernanda Lins" },
+      "27": { nome: "Roberto Queiroz", vice: "Ana Paula Lima" },
+      "45": { nome: "Marina Torres", vice: "João Batista Rocha" } } }
+];
+
+/* ===================== ESTADO ===================== */
+let etapa = 0, numero = "", branco = false, fim = false, ocupada = false;
+let apuracao = carregarApuracao();
+
+function apuracaoVazia() { return { eleitores: 0, votos: ETAPAS.map(() => ({})) }; }
+function carregarApuracao() {
+  try {
+    const s = localStorage.getItem("urna-apuracao");
+    if (s) { const a = JSON.parse(s); if (a && Array.isArray(a.votos) && a.votos.length === ETAPAS.length) return a; }
+  } catch (e) {}
+  return apuracaoVazia();
+}
+function salvarApuracao() { try { localStorage.setItem("urna-apuracao", JSON.stringify(apuracao)); } catch (e) {} }
+
+/* ===================== SOM (Web Audio) ===================== */
+let ctx = null;
+const chkSom = document.getElementById("chkSom");
+function audio() {
+  if (!ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) ctx = new AC(); }
+  if (ctx && ctx.state === "suspended") ctx.resume();
+  return ctx;
+}
+function bip(freq, inicio, dur, vol = 0.12, tipo = "square") {
+  const a = audio(); if (!a || !chkSom.checked) return;
+  const t = a.currentTime + inicio;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = tipo; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.005);
+  g.gain.setValueAtTime(vol, t + dur - 0.01);
+  g.gain.linearRampToValueAtTime(0, t + dur);
+  o.connect(g).connect(a.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+const somTecla    = () => bip(1080, 0, 0.07, 0.09);
+const somConfirma = () => { bip(1080, 0, 0.09); bip(1080, 0.14, 0.09); };
+const somErro     = () => bip(220, 0, 0.25, 0.1, "sawtooth");
+const somFim      = () => {           // o famoso "pi-pi-pi-pi-piiii"
+  [0, 0.13, 0.26, 0.39].forEach(t => bip(1080, t, 0.09, 0.13));
+  bip(1080, 0.52, 0.75, 0.13);
+};
+
+/* ===================== FOTO (avatar gerado) ===================== */
+function foto(nome, pequena) {
+  const iniciais = nome.split(" ").filter(p => p.length > 2).map(p => p[0]).slice(0, 2).join("");
+  let h = 0; for (const c of nome) h = (h * 31 + c.charCodeAt(0)) % 360;
+  return `<svg viewBox="0 0 60 75" role="img" aria-label="Foto de ${nome}">
+    <rect width="60" height="75" fill="hsl(${h} 35% 82%)"/>
+    <circle cx="30" cy="28" r="13" fill="hsl(${h} 25% 45%)"/>
+    <path d="M6 75c2-17 12-25 24-25s22 8 24 25z" fill="hsl(${h} 25% 45%)"/>
+    <text x="30" y="33" text-anchor="middle" font-family="Arial" font-size="${pequena ? 11 : 12}" fill="#fff">${iniciais}</text>
+  </svg>`;
+}
+
+/* ===================== TELA ===================== */
+const tela = document.getElementById("tela");
+const btnProximo = document.getElementById("btnProximo");
+
+function analisar() {
+  const e = ETAPAS[etapa];
+  if (branco) return { tipo: "branco" };
+  if (numero.length < e.digitos) return { tipo: "digitando" };
+  const cand = e.candidatos[numero];
+  const partido = PARTIDOS[numero.slice(0, 2)];
+  if (cand) return { tipo: "candidato", cand, partido };
+  if (e.legenda && partido) return { tipo: "legenda", partido };
+  return { tipo: "nulo" };
+}
+
+function render() {
+  if (fim) {
+    tela.innerHTML = `<div class="fim"><div class="palavra">FIM</div><div class="votou">VOTOU</div></div>`;
+    return;
+  }
+  const e = ETAPAS[etapa];
+  const r = analisar();
+  const caixas = branco ? "" : `<div class="numero"><span class="rotulo">Número:</span>${
+    Array.from({ length: e.digitos }, (_, i) =>
+      `<span class="digito ${i === numero.length ? "atual" : ""}">${numero[i] || ""}</span>`).join("")}</div>`;
+
+  let dados = "", fotos = "", rodape = false;
+  if (r.tipo === "candidato") {
+    dados = `<div class="dados"><div>Nome: <b>${r.cand.nome}</b></div><div>Partido: <b>${r.partido ? r.partido.sigla : "—"}</b></div>${
+      r.cand.vice ? `<div>${r.cand.rotuloVice ? "1º Suplente" : "Vice-" + e.cargo.toLowerCase().replace(/^./, c => c.toUpperCase())}: <b>${r.cand.vice}</b></div>` : ""}</div>`;
+    fotos = `<div class="fotos"><div class="foto">${foto(r.cand.nome)}${e.cargo}</div>${
+      r.cand.vice ? `<div class="foto vice">${foto(r.cand.vice, true)}${r.cand.rotuloVice ? "Suplente" : "Vice"}</div>` : ""}</div>`;
+    rodape = true;
+  } else if (r.tipo === "legenda") {
+    dados = `<div class="aviso-medio">NÚMERO ERRADO</div><div class="dados"><div>Partido: <b>${r.partido.sigla} – ${r.partido.nome}</b></div></div><div class="aviso-grande">VOTO DE LEGENDA</div>`;
+    rodape = true;
+  } else if (r.tipo === "nulo") {
+    dados = `<div class="aviso-medio">NÚMERO ERRADO</div><div class="aviso-grande">VOTO NULO</div>`;
+    rodape = true;
+  } else if (r.tipo === "branco") {
+    dados = `<div class="aviso-grande">VOTO EM BRANCO</div>`;
+    rodape = true;
+  }
+
+  tela.innerHTML = `
+    <div class="tela-corpo">
+      <div class="info">
+        <div class="seu-voto">${numero.length || branco ? "SEU VOTO PARA" : ""}</div>
+        <div class="cargo">${e.cargo}</div>
+        ${caixas}${dados}
+      </div>${fotos}
+    </div>
+    ${rodape ? `<div class="rodape-tela">Aperte a tecla:<br>&nbsp;&nbsp;VERDE para CONFIRMAR este voto<br>&nbsp;&nbsp;LARANJA para REINICIAR este voto</div>` : ""}`;
+}
+
+/* ===================== AÇÕES ===================== */
+function digitar(n) {
+  if (fim || ocupada || branco) return;
+  const e = ETAPAS[etapa];
+  if (numero.length >= e.digitos) return;
+  somTecla();
+  numero += n;
+  render();
+}
+function votarBranco() {
+  if (fim || ocupada) return;
+  if (numero.length) { somErro(); return; }   // na urna real, BRANCO só funciona com o campo vazio
+  somTecla();
+  branco = true; render();
+}
+function corrigir() {
+  if (fim || ocupada) return;
+  somTecla();
+  numero = ""; branco = false; render();
+}
+function confirmar() {
+  if (fim || ocupada) return;
+  const r = analisar();
+  if (r.tipo === "digitando") { somErro(); return; }
+
+  const chave = r.tipo === "candidato" ? numero
+              : r.tipo === "legenda" ? "legenda:" + numero.slice(0, 2)
+              : r.tipo;
+  const v = apuracao.votos[etapa];
+  v[chave] = (v[chave] || 0) + 1;
+
+  numero = ""; branco = false;
+  if (etapa === ETAPAS.length - 1) {
+    fim = true;
+    apuracao.eleitores++;
+    salvarApuracao();
+    somFim(); render(); renderBoletim();
+    btnProximo.hidden = false;
+    btnProximo.focus();
+  } else {
+    somConfirma();
+    ocupada = true;                       // breve pausa, como na urna real
+    tela.innerHTML = `<div class="fim"><div class="votou" style="font-size:4cqw">Gravando…</div></div>`;
+    setTimeout(() => { etapa++; ocupada = false; render(); }, 650);
+    salvarApuracao(); renderBoletim();
+  }
+}
+function proximoEleitor() {
+  etapa = 0; numero = ""; branco = false; fim = false;
+  btnProximo.hidden = true;
+  render();
+}
+
+/* Eventos de clique */
+document.getElementById("teclas").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-num]"); if (b) digitar(b.dataset.num);
+});
+document.getElementById("btnBranco").onclick = votarBranco;
+document.getElementById("btnCorrige").onclick = corrigir;
+document.getElementById("btnConfirma").onclick = confirmar;
+btnProximo.onclick = proximoEleitor;
+
+/* Teclado físico */
+function piscarBotao(el) { el.classList.add("pressionada"); setTimeout(() => el.classList.remove("pressionada"), 110); }
+document.addEventListener("keydown", ev => {
+  if (ev.target.matches("select, input")) return;
+  if (/^[0-9]$/.test(ev.key)) {
+    piscarBotao(document.querySelector(`[data-num="${ev.key}"]`)); digitar(ev.key);
+  } else if (ev.key === "Enter") {
+    ev.preventDefault();
+    if (fim) { proximoEleitor(); return; }
+    piscarBotao(document.getElementById("btnConfirma")); confirmar();
+  } else if (ev.key === "Backspace" || ev.key === "Escape") {
+    ev.preventDefault(); piscarBotao(document.getElementById("btnCorrige")); corrigir();
+  } else if (ev.key.toLowerCase() === "b") {
+    piscarBotao(document.getElementById("btnBranco")); votarBranco();
+  }
+});
+
+/* ===================== LISTA E BOLETIM ===================== */
+function renderLista() {
+  document.getElementById("listaCandidatos").innerHTML = ETAPAS.map((e, i) => `
+    <details ${i === 0 ? "open" : ""}>
+      <summary>${e.cargo.charAt(0) + e.cargo.slice(1).toLowerCase()} (${e.digitos} dígitos)</summary>
+      <ul>${Object.entries(e.candidatos).map(([n, c]) =>
+        `<li><span>${n}</span><span>${c.nome} · ${PARTIDOS[n.slice(0, 2)].sigla}</span></li>`).join("")}</ul>
+    </details>`).join("");
+}
+
+const selCargo = document.getElementById("selCargo");
+selCargo.innerHTML = ETAPAS.map((e, i) => `<option value="${i}">${e.cargo.charAt(0) + e.cargo.slice(1).toLowerCase()}</option>`).join("");
+selCargo.onchange = renderBoletim;
+
+function rotulo(i, chave) {
+  if (chave === "branco") return "Votos em branco";
+  if (chave === "nulo") return "Votos nulos";
+  if (chave.startsWith("legenda:")) { const p = PARTIDOS[chave.slice(8)]; return `Legenda ${p.sigla} (${chave.slice(8)})`; }
+  const c = ETAPAS[i].candidatos[chave];
+  return `${chave} · ${c.nome} (${PARTIDOS[chave.slice(0, 2)].sigla})`;
+}
+function renderBoletim() {
+  const n = apuracao.eleitores;
+  document.getElementById("totalEleitores").textContent = n === 1 ? "1 eleitor votou" : `${n} eleitores votaram`;
+  const i = +selCargo.value;
+  const v = apuracao.votos[i];
+  const total = Object.values(v).reduce((a, b) => a + b, 0);
+  const box = document.getElementById("barras");
+  if (!total) { box.innerHTML = `<p class="vazio">Nenhum voto confirmado para este cargo. Vote na urna para ver a apuração aqui.</p>`; return; }
+  const ordem = Object.entries(v).sort((a, b) => {
+    const especial = k => (k === "branco" || k === "nulo") ? 1 : 0;
+    return especial(a[0]) - especial(b[0]) || b[1] - a[1];
+  });
+  box.innerHTML = ordem.map(([k, q]) => {
+    const pct = (q / total * 100);
+    return `<div class="barra-linha"><span>${rotulo(i, k)}</span><span class="valor">${q} · ${pct.toFixed(1).replace(".", ",")}%</span>
+      <div class="barra-trilho"><div style="width:${pct}%"></div></div></div>`;
+  }).join("");
+}
+document.getElementById("btnZerar").onclick = () => {
+  if (!confirm("Zerar todos os votos registrados neste navegador?")) return;
+  apuracao = apuracaoVazia(); salvarApuracao(); renderBoletim();
+};
+
+renderLista();
+renderBoletim();
+render();
+</script>
+</body>
+</html>
